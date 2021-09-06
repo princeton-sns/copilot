@@ -218,7 +218,7 @@ func (r *Replica) replyPrepare(reply *gpaxosproto.PrepareReply, w *bufio.Writer)
 func (r *Replica) send1b(msg *gpaxosproto.M_1b, w *bufio.Writer) {
 	w.WriteByte(gpaxosproto.M1B)
 	msg.Marshal(w)
-	dummy := state.Command{0, 0, 0}
+	dummy := state.Command{Op: 0, K: 0, V: 0}
 	for _, cid := range msg.Cstruct {
 		if cmd, present := r.commands[cid]; present {
 			cmd.Marshal(w)
