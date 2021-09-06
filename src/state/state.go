@@ -8,6 +8,7 @@ import (
 )
 
 type Operation uint8
+//type OperationId int32
 
 const (
 	NONE Operation = iota
@@ -25,6 +26,8 @@ const NIL Value = 0
 type Key int64
 
 type Command struct {
+	ClientId uint32
+	OpId int32
 	Op Operation
 	K  Key
 	V  Value
@@ -47,7 +50,10 @@ func InitState() *State {
 	   return &State{d}
 	*/
 
-	return &State{new(sync.Mutex), make(map[Key]Value)}
+	//return &State{new(sync.Mutex), make(map[Key]Value)}
+	return &State{new(sync.Mutex), make(map[Key]Value, 100000)}
+	//return &State{new(sync.Mutex), make(map[Key]Value, 10000000)}
+	//return &State{new(sync.Mutex), make(map[Key]Value, 100000000)}
 }
 
 func Conflict(gamma *Command, delta *Command) bool {

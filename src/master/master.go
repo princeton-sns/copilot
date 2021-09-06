@@ -15,6 +15,7 @@ import (
 
 var portnum *int = flag.Int("port", 7087, "Port # to listen on. Defaults to 7087")
 var numNodes *int = flag.Int("N", 3, "Number of replicas. Defaults to 3.")
+var twoLeaders *bool = flag.Bool("twoLeaders", false, "Two leaders for slowdown tolerance. Defaults to false.")
 
 type Master struct {
 	N        int
@@ -78,6 +79,10 @@ func (master *Master) run() {
 	}
 	master.leader[0] = true
 
+	if master.N >= 2 && *twoLeaders {
+		master.leader[1] = true
+	}
+
 	for true {
 		time.Sleep(3000 * 1000 * 1000)
 		new_leader := false
@@ -103,7 +108,7 @@ func (master *Master) run() {
 				err := new_master.Call("Replica.BeTheLeader", new(genericsmrproto.BeTheLeaderArgs), new(genericsmrproto.BeTheLeaderReply))
 				if err == nil {
 					master.leader[i] = true
-					log.Printf("Replica %d is the new leader.", i)
+					// log.Printf("Replica %d is the new leader.", i)
 					break
 				}
 			}
@@ -155,6 +160,25 @@ func (master *Master) GetLeader(args *masterproto.GetLeaderArgs, reply *masterpr
 		if l {
 			*reply = masterproto.GetLeaderReply{i}
 			break
+		}
+	}
+	return nil
+}
+
+// slowdown: get two leaders
+func (master *Master) GetTwoLeaders(args *masterproto.GetTwoLeadersArgs, reply *masterproto.GetTwoLeadersReply) error {
+
+	time.Sleep(4 * 1000 * 1000)
+	reply.Leader1Id = -1;
+	reply.Leader2Id = -1;
+	for i, l := range master.leader {
+		if l {
+			if reply.Leader1Id == -1 {
+				reply.Leader1Id = i
+			} else {
+				reply.Leader2Id = i;
+				break;
+			}
 		}
 	}
 	return nil

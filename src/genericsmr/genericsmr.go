@@ -2,6 +2,7 @@ package genericsmr
 
 import (
 	"bufio"
+	"dlog"
 	"encoding/binary"
 	"fastrpc"
 	"fmt"
@@ -30,6 +31,16 @@ type Propose struct {
 type Beacon struct {
 	Rid       int32
 	Timestamp uint64
+}
+
+type Client struct {
+	*genericsmrproto.RegisterClientIdArgs
+	Reply *bufio.Writer
+}
+
+type GetView struct {
+	*genericsmrproto.GetView
+	Reply *bufio.Writer
 }
 
 type Replica struct {
@@ -65,6 +76,10 @@ type Replica struct {
 	Ewma []float64
 
 	OnClientConnect chan bool
+
+	RegisterClientIdChan chan *Client // channel for registering client id
+
+	GetViewChan chan *GetView
 }
 
 func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply bool) *Replica {
@@ -91,7 +106,10 @@ func NewReplica(id int, peerAddrList []string, thrifty bool, exec bool, dreply b
 		make(map[uint8]*RPCPair),
 		genericsmrproto.GENERIC_SMR_BEACON_REPLY + 1,
 		make([]float64, len(peerAddrList)),
-		make(chan bool, 100)}
+		make(chan bool, 1200),
+		make(chan *Client, CHAN_BUFFER_SIZE),
+		make(chan *GetView, CHAN_BUFFER_SIZE),
+	}
 
 	var err error
 
@@ -114,6 +132,10 @@ func (r *Replica) Ping(args *genericsmrproto.PingArgs, reply *genericsmrproto.Pi
 }
 
 func (r *Replica) BeTheLeader(args *genericsmrproto.BeTheLeaderArgs, reply *genericsmrproto.BeTheLeaderReply) error {
+	return nil
+}
+
+func (r *Replica) BeTheLeader2(args *genericsmrproto.BeTheLeaderArgs, reply *genericsmrproto.BeTheLeaderReply) error {
 	return nil
 }
 
@@ -232,7 +254,68 @@ func (r *Replica) replicaListener(rid int, reader *bufio.Reader) {
 	var gbeacon genericsmrproto.Beacon
 	var gbeaconReply genericsmrproto.BeaconReply
 
+	var timer05ms *time.Timer
+	var timer1ms *time.Timer
+	var timer2ms *time.Timer
+	var timer5ms *time.Timer
+	var timer10ms *time.Timer
+	var timer20ms *time.Timer
+	var timer40ms *time.Timer
+	var timer80ms *time.Timer
+	allFired := false
+	INJECT_SLOWDOWN := false
+	if r.Id == int32(0) && INJECT_SLOWDOWN {
+		timer05ms = time.NewTimer(48 * time.Second)
+		timer1ms = time.NewTimer(49 * time.Second)
+		timer2ms = time.NewTimer(50 * time.Second)
+		timer5ms = time.NewTimer(51 * time.Second)
+		timer10ms = time.NewTimer(52 * time.Second)
+		timer20ms = time.NewTimer(53 * time.Second)
+		timer40ms = time.NewTimer(54 * time.Second)
+		timer80ms = time.NewTimer(55 * time.Second)
+	}
 	for err == nil && !r.Shutdown {
+
+		if r.Id == int32(0) && INJECT_SLOWDOWN && !allFired {
+			select {
+			case <-timer05ms.C:
+				fmt.Printf("Replica %v: replicaListenerTimer 0.5ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(500 * time.Microsecond)
+
+			case <-timer1ms.C:
+				fmt.Printf("Replica %v: replicaListenerTimer 1ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(1 * time.Millisecond)
+
+			case <-timer2ms.C:
+				fmt.Printf("Replica %v: replicaListenerTimer 2ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(2 * time.Millisecond)
+
+			case <-timer5ms.C:
+				fmt.Printf("Replica %v: replicaListenerTimer 5ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(5 * time.Millisecond)
+
+			case <-timer10ms.C:
+				fmt.Printf("Replica %v: replicaListenerTimer 10ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(10 * time.Millisecond)
+
+			case <-timer20ms.C:
+				fmt.Printf("Replica %v: replicaListenerTimer 20ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(20 * time.Millisecond)
+
+			case <-timer40ms.C:
+				fmt.Printf("Replica %v: replicaListenerTimer 40ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(40 * time.Millisecond)
+
+			case <-timer80ms.C:
+				fmt.Printf("Replica %v: replicaListenerTimer 80ms fired at %v\n", r.Id, time.Now())
+				allFired = true
+				time.Sleep(80 * time.Millisecond)
+
+			default:
+				break
+
+			}
+		}
 
 		if msgType, err = reader.ReadByte(); err != nil {
 			break
@@ -276,7 +359,70 @@ func (r *Replica) clientListener(conn net.Conn) {
 	writer := bufio.NewWriter(conn)
 	var msgType byte //:= make([]byte, 1)
 	var err error
+
+	var timer05ms *time.Timer
+	var timer1ms *time.Timer
+	var timer2ms *time.Timer
+	var timer5ms *time.Timer
+	var timer10ms *time.Timer
+	var timer20ms *time.Timer
+	var timer40ms *time.Timer
+	var timer80ms *time.Timer
+	allFired := false
+	INJECT_SLOWDOWN := false
+	if r.Id == int32(0) && INJECT_SLOWDOWN {
+		timer05ms = time.NewTimer(42 * time.Second)
+		timer1ms = time.NewTimer(43 * time.Second)
+		timer2ms = time.NewTimer(44 * time.Second)
+		timer5ms = time.NewTimer(45 * time.Second)
+		timer10ms = time.NewTimer(46 * time.Second)
+		timer20ms = time.NewTimer(47 * time.Second)
+		timer40ms = time.NewTimer(48 * time.Second)
+		timer80ms = time.NewTimer(49 * time.Second)
+	}
+
 	for !r.Shutdown && err == nil {
+
+		if r.Id == int32(0) && INJECT_SLOWDOWN && !allFired {
+			select {
+			case <-timer05ms.C:
+				fmt.Printf("Replica %v: clientListenerTimer 0.5ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(500 * time.Microsecond)
+
+			case <-timer1ms.C:
+				fmt.Printf("Replica %v: clientListenerTimer 1ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(1 * time.Millisecond)
+
+			case <-timer2ms.C:
+				fmt.Printf("Replica %v: clientListenerTimer 2ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(2 * time.Millisecond)
+
+			case <-timer5ms.C:
+				fmt.Printf("Replica %v: clientListenerTimer 5ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(5 * time.Millisecond)
+
+			case <-timer10ms.C:
+				fmt.Printf("Replica %v: clientListenerTimer 10ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(10 * time.Millisecond)
+
+			case <-timer20ms.C:
+				fmt.Printf("Replica %v: clientListenerTimer 20ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(20 * time.Millisecond)
+
+			case <-timer40ms.C:
+				fmt.Printf("Replica %v: clientListenerTimer 40ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(40 * time.Millisecond)
+
+			case <-timer80ms.C:
+				fmt.Printf("Replica %v: clientListenerTimer 80ms fired at %v\n", r.Id, time.Now())
+				allFired = true
+				time.Sleep(80 * time.Millisecond)
+
+			default:
+				break
+
+			}
+		}
 
 		if msgType, err = reader.ReadByte(); err != nil {
 			break
@@ -289,6 +435,10 @@ func (r *Replica) clientListener(conn net.Conn) {
 			if err = prop.Unmarshal(reader); err != nil {
 				break
 			}
+			//if (time.Now().UnixNano() - prop.Timestamp) >= int64(5000000) /*5ms*/ {
+			//		fmt.Printf("Replica %v: clientListener: request %v-%v takes %v (us)\n", r.Id, prop.Command.ClientId, prop.CommandId, (time.Now().UnixNano()-prop.Timestamp)/int64(1000))
+
+			//}
 			r.ProposeChan <- &Propose{prop, writer}
 			break
 
@@ -307,7 +457,27 @@ func (r *Replica) clientListener(conn net.Conn) {
 			}
 			//r.ProposeAndReadChan <- pr
 			break
+
+		case genericsmrproto.REGISTER_CLIENT_ID:
+
+			rci := new(genericsmrproto.RegisterClientIdArgs)
+			if err = rci.Unmarshal(reader); err != nil {
+				fmt.Println("Error reading from client", err)
+				break
+			}
+			dlog.Println("Receiving registration from client", rci.ClientId)
+			r.RegisterClientIdChan <- &Client{rci, writer}
+			break
+
+		case genericsmrproto.GET_VIEW:
+			gv := new(genericsmrproto.GetView)
+			if err = gv.Unmarshal(reader); err != nil {
+				break
+			}
+			r.GetViewChan <- &GetView{gv, writer}
+			break
 		}
+
 	}
 	if err != nil && err != io.EOF {
 		log.Println("Error when reading from client connection:", err)
@@ -345,7 +515,7 @@ func (r *Replica) ReplyPropose(reply *genericsmrproto.ProposeReply, w *bufio.Wri
 func (r *Replica) ReplyProposeTS(reply *genericsmrproto.ProposeReplyTS, w *bufio.Writer) {
 	//r.clientMutex.Lock()
 	//defer r.clientMutex.Unlock()
-	//w.WriteByte(genericsmrproto.PROPOSE_REPLY)
+	w.WriteByte(genericsmrproto.PROPOSE_REPLY)
 	reply.Marshal(w)
 	w.Flush()
 }
@@ -363,6 +533,18 @@ func (r *Replica) ReplyBeacon(beacon *Beacon) {
 	w.WriteByte(genericsmrproto.GENERIC_SMR_BEACON_REPLY)
 	rb := &genericsmrproto.BeaconReply{beacon.Timestamp}
 	rb.Marshal(w)
+	w.Flush()
+}
+
+func (r *Replica) ReplyRegisterClientId(reply *genericsmrproto.RegisterClientIdReply, w *bufio.Writer) {
+	w.WriteByte(genericsmrproto.REGISTER_CLIENT_ID_REPLY)
+	reply.Marshal(w)
+	w.Flush()
+}
+
+func (r *Replica) ReplyGetView(reply *genericsmrproto.GetViewReply, w *bufio.Writer) {
+	w.WriteByte(genericsmrproto.GET_VIEW_REPLY)
+	reply.Marshal(w)
 	w.Flush()
 }
 

@@ -25,3 +25,13 @@ type GetReplicaListReply struct {
 	ReplicaList []string
 	Ready       bool
 }
+
+// Slowdown: Get two leaders reply
+type GetTwoLeadersArgs struct {
+}
+
+type GetTwoLeadersReply struct {
+	Leader1Id int
+	Leader2Id int
+
+}

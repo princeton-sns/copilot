@@ -1,43 +1,52 @@
-EPaxos
+Copilot
 ======
 
 
-### What is EPaxos?
+### What is Copilot?
+Copilot replication is the first 1-slowdown-tolerant consensus protocol: it delivers normal latency despite the slowdown of any 1 replica.
+
+### What makes Copilot novel? 
+No existing consensus protocol is slowdown-tolerant: a single slow replica can sharply increase their latency. 
+Copilot is the first 1-slowdown-tolerant consensus protocol. 
+It avoids slowdowns using two distinguished replicas, the pilot and copilot.
+Its pilot and copilot both receive, order, execute, and reply to all client commands. 
+It uses this proactive redundancy and a fast takeover mechanism that allows a fast pilot to safely complete 
+the work of a slow pilot to provide slowdown tolerance. 
+
+It has two optimizations&mdash;ping-pong batching and null dependency elimination&mdash;that improve its performance 
+when there are 0 and 1 slow pilots respectively. 
+Despite its redundancy, Copilot replication's performance is competitive 
+with existing consensus protocols when no replicas are slow. 
+When a replica is slow, Copilot is the only consensus protocol that avoids high latencies for client commands.
 
 
-EPaxos is an efficient, leaderless replication protocol. The name stands for *Egalitarian Paxos* -- EPaxos is based
-on the Paxos consensus algorithm. As such, it can tolerate up to F concurrent replica failures with 2F+1 total replicas.
+### How does Copilot work?
 
-### How does EPaxos differ from Paxos and other Paxos variants?
+Our [OSDI 2020 paper](https://www.usenix.org/conference/osdi20/presentation/ngo) describes the motivation, design, implementation, and evaluation of Copilot.
 
-To function effectively as a replication protocol, Paxos has to rely on a stable leader replica (this optimization is known as Multi-Paxos). The leader can become a bottleneck for performance: it has to handle more messages than the other replicas, and remote clients have to contact the leader, thus experiencing higher latency. Other Paxos variants either also rely on a stable leader, or have a pre-established scheme that allows different replicas to take turns in proposing commands (such as Mencius). This latter scheme
-suffers from tight coupling of the performance of the system from that of every replica -- i.e., the system runs at the speed of the slowest replica.
+### What is Latent Copilot?
+Latent Copilot, a variant of Copilot, is another design and implementation of a 1-slowdown-tolerant consensus protocol.
+Latent Copilot operates with one active pilot, which actively proposes commands, and one latent pilot,
+which proposes commands only when they have not been committed by the active pilot in a timely manner. 
+In this way, Latent Copilot achieves an intermediate tradeoff 
+between MultiPaxos and Copilot in terms of throughput and slowdown tolerance.
 
-EPaxos is an efficient, leaderless protocol. It provides **strong consistency with optimal wide-area latency, perfect load-balancing across replicas (both in the local and the wide area), and constant availability for up to F failures**. EPaxos also decouples the performance of the slowest replicas from that of the fastest, so it can better tolerate slow replicas than previous protocols.
+Latent Copilot has different mechanisms to determine when a pilot should switch
+its mode if it suspects the other pilot is continually slow or fast.
+To learn about the progress of the other pilot, a pilot uses additional metadata embedded in the ordering messages to
+learn about the status of the commands from the replicas.
 
-### How does EPaxos work?
-
-We have [an SOSP 2013 paper](http://dl.acm.org/ft_gateway.cfm?id=2517350&ftid=1403953&dwn=1) that describes EPaxos in detail.
-
-A simpler, more straightforward explanation is coming here soon.
-
+For more details about Latent Copilot, please refer to Ngo's Ph.D. dissertation.
 
 ### What is in this repository?
 
 This repository contains the Go implementations of:
 
-* Egalitarian Paxos (EPaxos), a new distributed consensus algorithm based on
-Paxos EPaxos achieves three goals: (1) availability *without interruption*
-as long as a simple majority of replicas are reachable---its availability is not
-interrupted when replicas crash or fail to respond; (2) uniform load balancing
-across all replicas---no replicas experience higher load because they have
-special roles; and (3) optimal commit latency in the wide-area when tolerating
-one and two failures, under realistic conditions. Egalitarian Paxos is to our
-knowledge the first distributed consensus protocol to achieve all of these goals
-efficiently: requiring only a simple majority of replicas to be non-faulty,
-using a number of messages linear in the number of replicas to choose a command,
-and committing commands after just one communication round (one round trip) in
-the common case or after at most two rounds in any case.
+* Copilot
+
+* Latent Copilot
+
+* EPaxos
 
 * (classic) Paxos
 
@@ -45,15 +54,18 @@ the common case or after at most two rounds in any case.
 
 * Generalized Paxos
 
+The implementations of EPaxos, MultiPaxos, Mencius, and Generalized Paxos were created by Iulian Moraru, David G. Andersen, and Michael Kaminsky as part of the [EPaxos project](https://github.com/efficient/epaxos).
 
 The struct marshaling and unmarshaling code was generated automatically using
 the tool available at: https://code.google.com/p/gobin-codegen/
 
-The repository also contains a machine-readable (and model-checkable) specification of EPaxos in TLA+.
-
 
 AUTHORS:
 
-Iulian Moraru, David G. Andersen -- Carnegie Mellon University
+Khiem Ngo -- Princeton University
 
-Michael Kaminsky -- Intel Labs
+Siddhartha Sen -- Microsoft Research
+
+Wyatt Lloyd -- Princeton University
+
+

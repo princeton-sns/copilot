@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"epaxosproto"
 	"fastrpc"
+	"fmt"
 	"genericsmr"
 	"genericsmrproto"
 	"io"
@@ -16,14 +17,18 @@ import (
 	"time"
 )
 
+const INJECT_SLOWDOWN = false
+
 const MAX_DEPTH_DEP = 10
 const TRUE = uint8(1)
 const FALSE = uint8(0)
 const ADAPT_TIME_SEC = 10
 
-const MAX_BATCH = 1000
+const MAX_BATCH = 5000
+const BATCH_INTERVAL =  100 * time.Microsecond
 
 const COMMIT_GRACE_PERIOD = 10 * 1e9 //10 seconds
+//const COMMIT_GRACE_PERIOD = 10 * 1e6 //10 seconds
 
 const BF_K = 4
 const BF_M_N = 32.0
@@ -230,7 +235,7 @@ var slowClockChan chan bool
 
 func (r *Replica) fastClock() {
 	for !r.Shutdown {
-		time.Sleep(5 * 1e6) // 5 ms
+		time.Sleep(BATCH_INTERVAL) // 5 ms
 		fastClockChan <- true
 	}
 }
@@ -304,7 +309,75 @@ func (r *Replica) run() {
 
 	onOffProposeChan := r.ProposeChan
 
+	var timer05ms *time.Timer
+	var timer1ms *time.Timer
+	var timer2ms *time.Timer
+	var timer5ms *time.Timer
+	var timer10ms *time.Timer
+	var timer20ms *time.Timer
+	var timer40ms *time.Timer
+	var timer80ms *time.Timer
+	allFired := false
+	if r.Id == 0 {
+		timer05ms = time.NewTimer(48 * time.Second)
+		timer1ms = time.NewTimer(49 * time.Second)
+		timer2ms = time.NewTimer(50 * time.Second)
+		timer5ms = time.NewTimer(51 * time.Second)
+		timer10ms = time.NewTimer(52 * time.Second)
+		timer20ms = time.NewTimer(53 * time.Second)
+		timer40ms = time.NewTimer(54 * time.Second)
+		timer80ms = time.NewTimer(55 * time.Second)
+	}
+
 	for !r.Shutdown {
+
+		if r.Id == 0 && INJECT_SLOWDOWN && !allFired {
+			select {
+			case <-timer05ms.C:
+				fmt.Printf("Replica %v: Timer 0.5ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(500 * time.Microsecond)
+				break
+
+			case <-timer1ms.C:
+				fmt.Printf("Replica %v: Timer 1ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(1 * time.Millisecond)
+				break
+
+			case <-timer2ms.C:
+				fmt.Printf("Replica %v: Timer 2ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(2 * time.Millisecond)
+				break
+
+			case <-timer5ms.C:
+				fmt.Printf("Replica %v: Timer 5ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(5 * time.Millisecond)
+				break
+
+			case <-timer10ms.C:
+				fmt.Printf("Replica %v: Timer 10ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(10 * time.Millisecond)
+				break
+
+			case <-timer20ms.C:
+				fmt.Printf("Replica %v: Timer 20ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(20 * time.Millisecond)
+				break
+
+			case <-timer40ms.C:
+				fmt.Printf("Replica %v: Timer 40ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(40 * time.Millisecond)
+				break
+
+			case <-timer80ms.C:
+				fmt.Printf("Replica %v: Timer 80ms fired at %v\n", r.Id, time.Now())
+				allFired = true
+				time.Sleep(80 * time.Millisecond)
+				break
+			default:
+				break
+
+			}
+		}
 
 		select {
 
@@ -314,7 +387,9 @@ func (r *Replica) run() {
 			r.handlePropose(propose)
 			//deactivate new proposals channel to prioritize the handling of other protocol messages,
 			//and to allow commands to accumulate for batching
-			onOffProposeChan = nil
+			if MAX_BATCH > 100 {
+				onOffProposeChan = nil
+			}
 			break
 
 		case <-fastClockChan:
@@ -427,7 +502,7 @@ func (r *Replica) run() {
 ************************************/
 
 func (r *Replica) executeCommands() {
-	const SLEEP_TIME_NS = 1e6
+	const SLEEP_TIME_NS = 1000 // 1 microsecond
 	problemInstance := make([]int32, r.N)
 	timeout := make([]uint64, r.N)
 	for q := 0; q < r.N; q++ {
@@ -435,8 +510,77 @@ func (r *Replica) executeCommands() {
 		timeout[q] = 0
 	}
 
+	var timer05ms *time.Timer
+	var timer1ms *time.Timer
+	var timer2ms *time.Timer
+	var timer5ms *time.Timer
+	var timer10ms *time.Timer
+	var timer20ms *time.Timer
+	var timer40ms *time.Timer
+	var timer80ms *time.Timer
+	if r.Id == 0 && INJECT_SLOWDOWN {
+		timer05ms = time.NewTimer(48 * time.Second)
+		timer1ms = time.NewTimer(49 * time.Second)
+		timer2ms = time.NewTimer(50 * time.Second)
+		timer5ms = time.NewTimer(51 * time.Second)
+		timer10ms = time.NewTimer(52 * time.Second)
+		timer20ms = time.NewTimer(53 * time.Second)
+		timer40ms = time.NewTimer(54 * time.Second)
+		timer80ms = time.NewTimer(55 * time.Second)
+	}
+	allFired := false
+
 	for !r.Shutdown {
 		executed := false
+
+		if r.Id == 0 && INJECT_SLOWDOWN && !allFired {
+			select {
+			case <-timer05ms.C:
+				fmt.Printf("Replica %v: ExecTimer 0.5ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(500 * time.Microsecond)
+				break
+
+			case <-timer1ms.C:
+				fmt.Printf("Replica %v: ExecTimer 1ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(1 * time.Millisecond)
+				break
+
+			case <-timer2ms.C:
+				fmt.Printf("Replica %v: ExecTimer 2ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(2 * time.Millisecond)
+				break
+
+			case <-timer5ms.C:
+				fmt.Printf("Replica %v: ExecTimer 5ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(5 * time.Millisecond)
+				break
+
+			case <-timer10ms.C:
+				fmt.Printf("Replica %v: ExecTimer 10ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(10 * time.Millisecond)
+				break
+
+			case <-timer20ms.C:
+				fmt.Printf("Replica %v: ExecTimer 20ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(20 * time.Millisecond)
+				break
+
+			case <-timer40ms.C:
+				fmt.Printf("Replica %v: ExecTimer 40ms fired at %v\n", r.Id, time.Now())
+				time.Sleep(40 * time.Millisecond)
+				break
+
+			case <-timer80ms.C:
+				fmt.Printf("Replica %v: ExecTimer 80ms fired at %v\n", r.Id, time.Now())
+				allFired = true
+				time.Sleep(80 * time.Millisecond)
+				break
+			default:
+				break
+
+			}
+		}
+
 		for q := 0; q < r.N; q++ {
 			inst := int32(0)
 			for inst = r.ExecedUpTo[q] + 1; inst < r.crtInstance[q]; inst++ {

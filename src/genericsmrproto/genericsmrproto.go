@@ -13,6 +13,10 @@ const (
 	PROPOSE_AND_READ_REPLY
 	GENERIC_SMR_BEACON
 	GENERIC_SMR_BEACON_REPLY
+	REGISTER_CLIENT_ID
+	REGISTER_CLIENT_ID_REPLY
+	GET_VIEW
+	GET_VIEW_REPLY
 )
 
 type Propose struct {
@@ -76,4 +80,23 @@ type BeTheLeaderArgs struct {
 }
 
 type BeTheLeaderReply struct {
+}
+
+type RegisterClientIdArgs struct {
+	ClientId uint32
+}
+
+type RegisterClientIdReply struct {
+	OK uint8
+}
+
+type GetView struct {
+	PilotId   int32
+}
+
+type GetViewReply struct {
+	OK        uint8 // 1: ACTIVE; 0: PENDING
+	ViewId    int32
+	PilotId   int32 // index of this pilot
+	ReplicaId int32 // unique id of this pilot replica
 }

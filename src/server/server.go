@@ -1,10 +1,12 @@
 package main
 
 import (
+	"copilot"
 	"epaxos"
 	"flag"
 	"fmt"
 	"gpaxos"
+	"latentcopilot"
 	"log"
 	"masterproto"
 	"mencius"
@@ -26,13 +28,16 @@ var myAddr *string = flag.String("addr", "", "Server address (this machine). Def
 var doMencius *bool = flag.Bool("m", false, "Use Mencius as the replication protocol. Defaults to false.")
 var doGpaxos *bool = flag.Bool("g", false, "Use Generalized Paxos as the replication protocol. Defaults to false.")
 var doEpaxos *bool = flag.Bool("e", false, "Use EPaxos as the replication protocol. Defaults to false.")
+var doCopilot *bool = flag.Bool("copilot", false, "Use Copilot as the replication protocol. Defaults to false.")
+var doLatentCopilot *bool = flag.Bool("latentcopilot", false, "Use Latent Copilot as the replication protocol. Defaults to false.")
 var procs *int = flag.Int("p", 2, "GOMAXPROCS. Defaults to 2")
-var cpuprofile = flag.String("cpuprofile", "", "write cpu profile to file")
-var thrifty = flag.Bool("thrifty", false, "Use only as many messages as strictly required for inter-replica communication.")
-var exec = flag.Bool("exec", false, "Execute commands.")
-var dreply = flag.Bool("dreply", false, "Reply to client only after command has been executed.")
-var beacon = flag.Bool("beacon", false, "Send beacons to other replicas to compare their relative speeds.")
-var durable = flag.Bool("durable", false, "Log to a stable store (i.e., a file in the current dir).")
+var cpuprofile *string = flag.String("cpuprofile", "", "write cpu profile to file")
+var thrifty *bool = flag.Bool("thrifty", false, "Use only as many messages as strictly required for inter-replica communication.")
+var exec *bool = flag.Bool("exec", false, "Execute commands.")
+var dreply *bool = flag.Bool("dreply", false, "Reply to client only after command has been executed.")
+var beacon *bool = flag.Bool("beacon", false, "Send beacons to other replicas to compare their relative speeds.")
+var durable *bool = flag.Bool("durable", false, "Log to a stable store (i.e., a file in the current dir).")
+var rreply *bool = flag.Bool("rreply", false, "Non-leader replicas reply to client.")
 
 func main() {
 	flag.Parse()
@@ -66,6 +71,14 @@ func main() {
 	} else if *doGpaxos {
 		log.Println("Starting Generalized Paxos replica...")
 		rep := gpaxos.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply)
+		rpc.Register(rep)
+	} else if *doCopilot {
+		log.Println("Starting Copilot replica...")
+		rep := copilot.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable, *rreply)
+		rpc.Register(rep)
+	} else if *doLatentCopilot {
+		log.Println("Starting Latent Copilot replica...")
+		rep := latentcopilot.NewReplica(replicaId, nodeList, *thrifty, *exec, *dreply, *beacon, *durable, *rreply)
 		rpc.Register(rep)
 	} else {
 		log.Println("Starting classic Paxos replica...")
