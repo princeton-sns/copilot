@@ -15,9 +15,9 @@ make
 ```
 2. Start 3 replicas that run Copilot protocol.
 ```shell
-(./bin/server -maddr=<master-ip> -mport=7087 -addr=<node-0-ip> -port=7070 -copilot=true) &
-(./bin/server -maddr=<master-ip> -mport=7087 -addr=<node-1-ip> -port=7070 -copilot=true) &
-(./bin/server -maddr=<master-ip> -mport=7087 -addr=<node-2-ip> -port=7070 -copilot=true) &
+(./bin/server -maddr=<master-ip> -mport=7087 -addr=<node-0-ip> -port=7070 -copilot=true -exec=true -dreply=true) &
+(./bin/server -maddr=<master-ip> -mport=7087 -addr=<node-1-ip> -port=7070 -copilot=true -exec=true -dreply=true) &
+(./bin/server -maddr=<master-ip> -mport=7087 -addr=<node-2-ip> -port=7070 -copilot=true -exec=true -dreply=true) &
 ```
 These replicas will connect to the master and wait for client connections.
 (Note: we assume the replicas are on separate machines.
